@@ -8,3 +8,7 @@ The premise was that I wanted to examine the Women in STEM campaigns that aimed 
 Due to time constraints I never was able to complete the project to the degree that I had hoped to and had to cut it short.
 
 I recently remembered this project and am hoping to get it to a more complete state in the near future if I can find the time for it.
+
+To see the html output of the current code, see this link:
+
+http://htmlpreview.github.io/?https://github.com/apirolo/ClassProject-Women-in-STEM-/blob/main/project.html
