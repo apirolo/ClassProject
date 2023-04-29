@@ -1,4 +1,4 @@
-# ClassProject
+# ClassProject (Women in STEM)
 Code from an old class project
 
 This was some R code that I wrote for a class project in the Spring 22 semester.
