@@ -1,0 +1,770 @@
+---
+title: "Women in STEM"
+author: "Alex Pirolo"
+date: "`r format(Sys.Date(), '%B %e, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+library(forecast)
+library(reshape2)
+library(ggrepel)
+
+```
+
+```{r downloadFiles, include=FALSE}
+TableNames = c("tabn325.10.xls",
+               "tabn325.15.xls",
+               "tabn325.20.xls",
+               "tabn325.22.xls",
+               "tabn325.25.xls",
+               "tabn325.30.xls",
+               "tabn325.35.xls",
+               "tabn325.40.xls",
+               "tabn325.45.xls",
+               "tabn325.47.xls",
+               "tabn325.50.xls",
+               "tabn325.55.xls",
+               "tabn325.57.xls",
+               "tabn325.59.xls",
+               "tabn325.60.xls",
+               "tabn325.65.xls",
+               "tabn325.70.xls",
+               "tabn325.72.xls",
+               "tabn325.80.xls",
+               "tabn325.85.xls",
+               "tabn325.90.xls",
+               "tabn325.92.xls",
+               "tabn325.95.xls")
+for (i in 1:length(TableNames)) {
+  file = TableNames[i]
+  if (!file.exists(file)) {
+    download.file(paste("https://nces.ed.gov/programs/digest/d19/tables/xls/", file, sep = ""),
+                  destfile = file)
+  }
+}
+```
+
+```{r ImportingData, include=FALSE}
+AgricultureAndNaturalResources = read_excel(TableNames[1])
+
+ArchitectureAndRelatedServices = read_excel(TableNames[2])
+BiologicalAndBiomedicalSciences = read_excel(TableNames[3])
+BiologyMicrobiologyAndZoology = read_excel(TableNames[4])
+Business = read_excel(TableNames[5])
+CommunicationJournalismAndRelatedPrograms = read_excel(TableNames[6])
+ComputerAndInformationServices = read_excel(TableNames[7])
+Education = read_excel(TableNames[8])
+EngineeringAndEngineeringTechnologies = read_excel(TableNames[9])
+ChemicalCivilElectricalAndMechanicalEngineering = read_excel(TableNames[10])
+
+EnglishLanguageandLiteratureLetters = read_excel(TableNames[11]) 
+
+ForeignLanguagesAndLiteratures = read_excel(TableNames[12])
+FrenchGermanItalianAndSpanishLanguageAndLiterature = read_excel(TableNames[13])
+ArabicChineseKoreanAndRussianLanguageAndLiterature = read_excel(TableNames[14])
+HealthProfessionsAndRelatedPrograms = read_excel(TableNames[15])
+MathematicsAndStatistics = read_excel(TableNames[16])
+PhysicalSciencesAndScienceTechnologies = read_excel(TableNames[17])
+ChemistryGeologyAndEarthScienceAndPhysics = read_excel(TableNames[18])
+Psychology = read_excel(TableNames[19])
+PublicAdministrationAndSocialServices = read_excel(TableNames[20])
+SocialSciencesAndHistory = read_excel(TableNames[21])
+EconomicsHistoryPoliticalScienceAndGovernmentAndSociology = read_excel(TableNames[22])
+VisualAndPerformingArts = read_excel(TableNames[23])
+```
+
+```{r cleaningData1, include=FALSE}
+
+AgricultureAndNaturalResources = AgricultureAndNaturalResources %>% select(Year = c(1),
+              TotalBachelorsAg = ...2,
+              AnnualPercentChangeAg = ...3,
+              MalesAg = ...4,
+              FemalesAg = ...5,
+              PercentFemalesAg = ...6) %>%
+  filter(!row_number() %in% c(1:4)) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() > 60)
+AgricultureAndNaturalResources$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       AgricultureAndNaturalResources$Year)
+
+Ag = AgricultureAndNaturalResources
+
+AgPercent = Ag %>% select(Year,
+                          PercentFemalesAg)
+```
+
+```{r cleaningData2, include=FALSE}
+ArchitectureAndRelatedServices = ArchitectureAndRelatedServices %>% select(Year = c(1),
+            TotalBachelorsArch = ...2,
+            AnnualPercentChangeArch = ...3,
+            MalesArch = ...4,
+            FemalesArch = ...5,
+            PercentFemalesArch = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in%
+           c(which(grepl("Percent change", Year)):length(Year)))
+
+ArchitectureAndRelatedServices$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       ArchitectureAndRelatedServices$Year)  
+
+Architecture = ArchitectureAndRelatedServices
+
+ArchitecturePercent = Architecture %>% select(Year,
+                                              PercentFemalesArch)
+```
+
+```{r cleaningData3, include=FALSE}
+BiologicalAndBiomedicalSciences = BiologicalAndBiomedicalSciences %>% 
+  select(Year = c(1),
+              TotalBachelorsBiomed = ...2,
+              AnnualPercentChangeBiomed = ...3,
+              MalesBiomed = ...4,
+              FemalesBiomed = ...5,
+              PercentFemalesBiomed = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+BiologicalAndBiomedicalSciences$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       BiologicalAndBiomedicalSciences$Year)
+
+Biomed = BiologicalAndBiomedicalSciences
+
+BioPercent = Biomed %>% select(Year,
+                               PercentFemalesBiomed)
+```
+
+```{r cleaningData4, include=FALSE}
+BiologyMicrobiologyAndZoology = BiologyMicrobiologyAndZoology %>% 
+  select(Year = c(1),
+              TotalBachelorsLife = ...2,
+              AnnualPercentChangeLife = ...3,
+              MalesLife = ...4,
+              FemalesLife = ...5,
+              PercentFemalesLife = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+BiologyMicrobiologyAndZoology$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       BiologyMicrobiologyAndZoology$Year)
+
+LifeSciences = BiologyMicrobiologyAndZoology
+
+LifeSciencesPercent = LifeSciences %>% select(Year, 
+                                            PercentFemalesLife)
+```
+
+```{r cleaningData5, include=FALSE}
+Business = Business %>% 
+  select(Year = c(1),
+              TotalBachelorsBus = ...2,
+              AnnualPercentChangeBus = ...3,
+              MalesBus = ...4,
+              FemalesBus = ...5,
+              PercentFemalesBus = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+Business$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       Business$Year)
+
+BusinessPercent = Business %>% select(Year,
+                                      PercentFemalesBus)
+```
+
+```{r cleaningData6, include=FALSE}
+CommunicationJournalismAndRelatedPrograms = CommunicationJournalismAndRelatedPrograms %>%
+  select(Year = c(1),
+              TotalBachelorsCom = ...2,
+              AnnualPercentChangeCom = ...3,
+              MalesCom = ...4,
+              FemalesCom = ...5,
+              PercentFemalesCom = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+CommunicationJournalismAndRelatedPrograms$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       CommunicationJournalismAndRelatedPrograms$Year)
+
+Communication = CommunicationJournalismAndRelatedPrograms
+
+CommunicationPercent = Communication %>% select(Year,
+                                                PercentFemalesCom)
+```
+
+```{r cleaningData7, include=FALSE}
+ComputerAndInformationServices = ComputerAndInformationServices %>%
+  select(Year = c(1),
+              TotalBachelorsComp = ...2,
+              AnnualPercentChangeComp = ...3,
+              MalesComp = ...4,
+              FemalesComp = ...5,
+              PercentFemalesComp = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+ComputerAndInformationServices$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       ComputerAndInformationServices$Year)
+
+CompService = ComputerAndInformationServices
+
+CompServicePercent = CompService %>% select(Year,
+                                            PercentFemalesComp)
+```
+
+```{r cleaningData8, include=FALSE}
+Education = Education %>% 
+  select(Year = c(1),
+              TotalBachelorsEd = ...2,
+              AnnualPercentChangeEd = ...3,
+              MalesEd = ...4,
+              FemalesEd = ...5,
+              PercentFemalesEd = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+Education$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       Education$Year)
+
+EducationPercent = Education %>% select(Year,
+                                        PercentFemalesEd)
+```
+
+```{r cleaningData9, include=FALSE}
+EngineeringAndEngineeringTechnologies = EngineeringAndEngineeringTechnologies %>% 
+  select(Year = c(1),
+              TotalBachelorsEngT = ...2,
+              AnnualPercentChangeEngT = ...3,
+              MalesEngT = ...4,
+              FemalesEngT = ...5,
+              PercentFemalesEngT = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+EngineeringAndEngineeringTechnologies$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       EngineeringAndEngineeringTechnologies$Year)
+
+EngTech = EngineeringAndEngineeringTechnologies
+
+EngTechPercent = EngTech %>% select(Year,
+                                    PercentFemalesEngT)
+```
+
+```{r cleaningData10, include=FALSE}
+ChemicalCivilElectricalAndMechanicalEngineering = ChemicalCivilElectricalAndMechanicalEngineering %>% 
+  select(Year = c(1),
+              TotalBachelorsEng = ...2,
+              AnnualPercentChangeEng = ...3,
+              MalesEng = ...4,
+              FemalesEng = ...5,
+              PercentFemalesEng = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+ChemicalCivilElectricalAndMechanicalEngineering$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       ChemicalCivilElectricalAndMechanicalEngineering$Year)
+
+Engineering = ChemicalCivilElectricalAndMechanicalEngineering
+
+EngineeringPercent = Engineering %>% select(Year,
+                                            PercentFemalesEng)
+```
+
+```{r cleaningData11, include=FALSE}
+EnglishLanguageandLiteratureLetters = EnglishLanguageandLiteratureLetters %>%
+  select(Year = c(1),
+              TotalBachelorsEngl = ...2,
+              AnnualPercentChangeEngl = ...3,
+              MalesEngl = ...4,
+              FemalesEngl = ...5,
+              PercentFemalesEngl = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+EnglishLanguageandLiteratureLetters$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       EnglishLanguageandLiteratureLetters$Year)
+
+English = EnglishLanguageandLiteratureLetters
+
+EnglishPercent = English %>% select(Year,
+                                    PercentFemalesEngl)
+```
+
+```{r cleaningData12, include=FALSE}
+ForeignLanguagesAndLiteratures = ForeignLanguagesAndLiteratures %>%
+  select(Year = c(1),
+              TotalBachelorsForL = ...2,
+              AnnualPercentChangeForL = ...3,
+              MalesForL = ...4,
+              FemalesForL = ...5,
+              PercentFemalesForL = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+ForeignLanguagesAndLiteratures$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       ForeignLanguagesAndLiteratures$Year)
+
+ForeignLanguage = ForeignLanguagesAndLiteratures
+
+ForeignLanguagePercent = ForeignLanguage %>% select(Year,
+                                                    PercentFemalesForL)
+```
+
+```{r cleaningData13, include=FALSE}
+FrenchGermanItalianAndSpanishLanguageAndLiterature = FrenchGermanItalianAndSpanishLanguageAndLiterature %>%
+  select(Year = c(1),
+              TotalBachelorsEuro = ...2,
+              AnnualPercentChangeEuro = ...3,
+              MalesEuro = ...4,
+              FemalesEuro = ...5,
+              PercentFemalesEuro = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+FrenchGermanItalianAndSpanishLanguageAndLiterature$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       FrenchGermanItalianAndSpanishLanguageAndLiterature$Year)
+
+WEuroLanguages = FrenchGermanItalianAndSpanishLanguageAndLiterature
+WEuroLanguagesPercent = WEuroLanguages %>% select(Year,
+                                                  PercentFemalesEuro)
+```
+
+```{r cleaningData14, include=FALSE}
+ArabicChineseKoreanAndRussianLanguageAndLiterature = ArabicChineseKoreanAndRussianLanguageAndLiterature %>%
+  select(Year = c(1),
+              TotalBachelorsEura = ...2,
+              AnnualPercentChangeEura = ...3,
+              MalesEura = ...4,
+              FemalesEura = ...5,
+              PercentFemalesEura = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+ArabicChineseKoreanAndRussianLanguageAndLiterature$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       ArabicChineseKoreanAndRussianLanguageAndLiterature$Year)
+
+EurasiaLanguages = ArabicChineseKoreanAndRussianLanguageAndLiterature
+
+EurasiaLanguagesPercent = EurasiaLanguages %>% select(Year,
+                                                      PercentFemalesEura)
+```
+
+```{r cleaningData15, include=FALSE}
+HealthProfessionsAndRelatedPrograms = HealthProfessionsAndRelatedPrograms %>%
+  select(Year = c(1),
+              TotalBachelorsHeal = ...2,
+              AnnualPercentChangeHeal = ...3,
+              MalesHeal = ...4,
+              FemalesHeal = ...5,
+              PercentFemalesHeal = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+HealthProfessionsAndRelatedPrograms$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       HealthProfessionsAndRelatedPrograms$Year)
+
+Health = HealthProfessionsAndRelatedPrograms
+
+HealthPercent = Health %>% select(Year,
+                                  PercentFemalesHeal)
+```
+
+```{r cleaningData16, include=FALSE}
+MathematicsAndStatistics = MathematicsAndStatistics %>%
+  select(Year = c(1),
+              TotalBachelorsMat = ...2,
+              AnnualPercentChangeMat = ...3,
+              MalesMat = ...4,
+              FemalesMat = ...5,
+              PercentFemalesMat = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+MathematicsAndStatistics$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       MathematicsAndStatistics$Year)
+
+MathStats = MathematicsAndStatistics
+
+MathStatsPercent = MathStats %>% select(Year,
+                                        PercentFemalesMat)
+```
+
+```{r cleaningData17, include=FALSE}
+PhysicalSciencesAndScienceTechnologies = PhysicalSciencesAndScienceTechnologies %>%
+  select(Year = c(1),
+              TotalBachelorsPhyS = ...2,
+              AnnualPercentChangePhyS = ...3,
+              MalesPhyS = ...4,
+              FemalesPhyS = ...5,
+              PercentFemalesPhyS = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+PhysicalSciencesAndScienceTechnologies$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       PhysicalSciencesAndScienceTechnologies$Year)
+
+PhysicalScience = PhysicalSciencesAndScienceTechnologies
+
+PhysicalSciencePercent = PhysicalScience %>% select(Year,
+                                                    PercentFemalesPhyS)
+```
+
+```{r cleaningData18, include=FALSE}
+ChemistryGeologyAndEarthScienceAndPhysics = ChemistryGeologyAndEarthScienceAndPhysics %>% 
+  select(Year = c(1),
+              TotalBachelorsChem = ...2,
+              AnnualPercentChangeChem = ...3,
+              MalesChem = ...4,
+              FemalesChem = ...5,
+              PercentFemalesChem = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+ChemistryGeologyAndEarthScienceAndPhysics$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       ChemistryGeologyAndEarthScienceAndPhysics$Year)
+
+ChemPhysics = ChemistryGeologyAndEarthScienceAndPhysics 
+
+ChemPhysicsPercent = ChemPhysics %>% select(Year,
+                                            PercentFemalesChem)
+```
+
+```{r cleaningData19, include=FALSE}
+Psychology = Psychology %>% 
+  select(Year = c(1),
+              TotalBachelorsPsy = ...2,
+              AnnualPercentChangePsy = ...3,
+              MalesPsy = ...4,
+              FemalesPsy = ...5,
+              PercentFemalesPsy = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+Psychology$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       Psychology$Year)
+
+PsychologyPercent = Psychology %>% select(Year,
+                                          PercentFemalesPsy)
+```
+
+```{r cleaningData20, include=FALSE}
+PublicAdministrationAndSocialServices = PublicAdministrationAndSocialServices %>%
+  select(Year = c(1),
+              TotalBachelorsSoSe = ...2,
+              AnnualPercentChangeSoSe = ...3,
+              MalesSoSe = ...4,
+              FemalesSoSe = ...5,
+              PercentFemalesSoSe = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+PublicAdministrationAndSocialServices$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       PublicAdministrationAndSocialServices$Year)
+
+SocialServices = PublicAdministrationAndSocialServices
+
+SocialServicesPercent = SocialServices %>% select(Year,
+                                                  PercentFemalesSoSe)
+```
+
+```{r cleaningData21, include=FALSE}
+SocialSciencesAndHistory = SocialSciencesAndHistory %>%
+  select(Year = c(1),
+              TotalBachelorsSocSc = ...2,
+              AnnualPercentChangeSocSc = ...3,
+              MalesSocSc = ...4,
+              FemalesSocSc = ...5,
+              PercentFemalesSocSc = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+SocialSciencesAndHistory$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       SocialSciencesAndHistory$Year)
+
+SocialSciences = SocialSciencesAndHistory
+
+SocialSciencesPercent = SocialSciences %>% select(Year,
+                                                  PercentFemalesSocSc)
+```
+
+```{r cleaningData22, include=FALSE}
+EconomicsHistoryPoliticalScienceAndGovernmentAndSociology = EconomicsHistoryPoliticalScienceAndGovernmentAndSociology %>%
+  select(Year = c(1),
+              TotalBachelorsHum = ...2,
+              AnnualPercentChangeHum = ...3,
+              MalesHum = ...4,
+              FemalesHum = ...5,
+              PercentFemalesHum = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+EconomicsHistoryPoliticalScienceAndGovernmentAndSociology$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       EconomicsHistoryPoliticalScienceAndGovernmentAndSociology$Year)
+
+Humanities = EconomicsHistoryPoliticalScienceAndGovernmentAndSociology
+
+HumanitiesPercent = Humanities %>% select(Year,
+                                          PercentFemalesHum)
+```
+
+```{r cleaningData23, include=FALSE}
+VisualAndPerformingArts = VisualAndPerformingArts %>%
+  select(Year = c(1),
+              TotalBachelorsArt = ...2,
+              AnnualPercentChangeArt = ...3,
+              MalesArt = ...4,
+              FemalesArt = ...5,
+              PercentFemalesArt = ...6) %>%
+  filter(!row_number() %in% c(1:which(grepl("1", Year)))) %>%
+  filter(!is.na(Year)) %>%
+  filter(!row_number() %in% c(which(grepl("Percent change", Year)):length(Year)))
+VisualAndPerformingArts$Year =
+  gsub("(^[^-]+)-.*", "\\1",
+       VisualAndPerformingArts$Year)
+
+Arts = VisualAndPerformingArts
+
+ArtsPercent = Arts %>% select(Year,
+                              PercentFemalesArt)
+```
+
+```{r mergingData, include=FALSE}
+AllDegrees = Ag %>% full_join(Architecture, by = "Year") %>%
+  full_join(Biomed, by = "Year") %>%
+  full_join(LifeSciences, by = "Year") %>%
+  full_join(Business, by = "Year") %>%
+  full_join(Communication, by = "Year") %>%
+  full_join(CompService, by = "Year") %>%
+  full_join(Education, by = "Year") %>%
+  full_join(EngTech, by = "Year") %>%
+  full_join(Engineering, by = "Year") %>%
+  full_join(English, by = "Year") %>%
+  full_join(ForeignLanguage, by = "Year") %>%
+  full_join(WEuroLanguages, by = "Year") %>%
+  full_join(EurasiaLanguages, by = "Year") %>%
+  full_join(Health, by = "Year") %>%
+  full_join(MathStats, by = "Year") %>%
+  full_join(PhysicalScience, by = "Year") %>%
+  full_join(ChemPhysics, by = "Year") %>%
+  full_join(Psychology, by = "Year") %>%
+  full_join(SocialServices, by = "Year") %>%
+  full_join(SocialSciences, by = "Year") %>%
+  full_join(Humanities, by = "Year") %>%
+  full_join(Arts, by = "Year")
+```
+
+```{r, include=FALSE}
+AllDegreesPercent = AgPercent %>%
+  full_join(ArchitecturePercent, by = "Year") %>%
+  full_join(BioPercent, by = "Year") %>%
+  full_join(LifeSciencesPercent, by = "Year") %>%
+  full_join(BusinessPercent, by = "Year") %>%
+  full_join(CommunicationPercent, by = "Year") %>%
+  full_join(CompServicePercent, by = "Year") %>%
+  full_join(EducationPercent, by = "Year") %>%
+  full_join(EngTechPercent, by = "Year") %>%
+  full_join(EngineeringPercent, by = "Year") %>%
+  full_join(EnglishPercent, by = "Year") %>%
+  full_join(ForeignLanguagePercent, by = "Year") %>%
+  full_join(WEuroLanguagesPercent, by = "Year") %>%
+  full_join(EurasiaLanguagesPercent, by = "Year") %>%
+  full_join(HealthPercent, by = "Year") %>%
+  full_join(MathStatsPercent, by = "Year") %>%
+  full_join(PhysicalSciencePercent, by = "Year") %>%
+  full_join(ChemPhysicsPercent, by = "Year") %>%
+  full_join(PsychologyPercent, by = "Year") %>%
+  full_join(SocialServicesPercent, by = "Year") %>%
+  full_join(SocialSciencesPercent, by = "Year") %>%
+  full_join(HumanitiesPercent, by = "Year") %>%
+  full_join(ArtsPercent, by = "Year")
+```
+
+```{r, include=FALSE}
+StemDegreesPercent = AllDegreesPercent %>% 
+  select(Year,
+         PercentFemalesBiomed,
+         PercentFemalesMat,
+         PercentFemalesComp,
+         PercentFemalesLife,
+         PercentFemalesEngT,
+         PercentFemalesEng,
+         PercentFemalesHeal,
+         PercentFemalesPhyS,
+         PercentFemalesPsy) %>%
+  filter(Year >= 1970) %>%
+  filter(Year < 2018)
+```
+
+```{r, include=FALSE}
+StemDegreesMF = AllDegrees %>%
+  select(Year,
+         MalesBiomed,
+         FemalesBiomed,
+         MalesLife,
+         FemalesLife,
+         MalesEng,
+         FemalesEng,
+         MalesEngT,
+         FemalesEngT,
+         MalesHeal,
+         FemalesHeal,
+         MalesPhyS,
+         FemalesPhyS,
+         MalesPsy,
+         FemalesPsy) %>%
+  filter(Year >= 1970) %>%
+  filter(Year < 2018)
+
+
+```
+
+```{r, include=FALSE}
+StemDegreesF = AllDegrees %>%
+  select(Year,
+         Biomed = FemalesBiomed,
+         CompSci = FemalesComp,
+         Mathemtatics = FemalesMat,
+         Engineering = FemalesEngT,
+         Health = FemalesHeal,
+         PhySci = FemalesPhyS,
+         Psychology = FemalesPsy) %>%
+  filter(Year >= 1970) %>%
+  filter(Year < 2018)
+EngTech
+StemDegreesFTS = StemDegreesF %>%
+  select(!Year)
+
+StemDegreesFTS = ts(StemDegreesFTS, start = 1970, frequency = 1)
+
+StemDegreesFLong = melt(StemDegreesF, id.vars = "Year")
+StemDegreesFLong$value = as.numeric(StemDegreesFLong$value)
+StemDegreesFLong$Year = as.numeric(StemDegreesFLong$Year)
+
+StemDegreesFLongLast = filter(StemDegreesFLong, Year == max(Year))
+
+
+```
+
+# Introduction
+
+The ratio of men to women in STEM areas of study is often cited as a contributing factor to unequal representation of men and women in certain fields of the workforce. To counter this disparity, some groups have sought to promote STEM degrees to women in an attempt to see more women graduate with these degrees and ultimately bring a balance to the number of men and women in fields that require such education.
+
+This analysis is an attempt to determine:
+
+-   Whether such campaigns have seen any results.
+
+-   To what extent they are creating a change.
+
+-   Whether any specific events appear to have had a noticeable effect.
+
+# Data
+
+The data used for this experiment will be from the National Center for Education Statistics (NCES). We will primarily be using their tables labeled under *Trends in Degrees by Field.* These are separate tables for what they consider to be primary categories of fields of study. Each of these tables may cover a variety of degrees which can be considered a subcategory of the field of study named in the table's title. Unfortunately, this data is only reported up to 2018 or in some cases 2019, thus this analysis will only make observations to the latest complete data available. Furthermore, although these tables include data for higher level degrees, we will primarily be looking at bachelors degrees.
+
+Note that NCES defines STEM degrees in [Table 318.45](https://nces.ed.gov/programs/digest/d21/tables/dt21_318.45.asp?current=yes) as:
+
+*"STEM fields include biological and biomedical sciences, computer and information sciences, engineering and engineering technologies, mathematics and statistics, and physical sciences and science technologies."*
+
+These will be the categories we include in STEM degrees in this analysis.
+
+# Number of Women Graduating With STEM Degrees.
+
+Perhaps the first thing that might come to mind in order to understand this situation would be to look at the number of women obtaining STEM degrees over the years.
+
+```{r, echo=FALSE}
+ggplot(StemDegreesFLong, aes(x = Year,
+                             y = value,
+                             color = variable)) +
+  geom_line() +
+  geom_text(aes(label = variable),
+            data = StemDegreesFLongLast,
+            size = 3,
+            hjust = -.1) +
+  coord_cartesian(clip = "off",
+                  expand = FALSE) +
+  theme(plot.margin =
+              margin(30, 60, 10, 10),
+        legend.position = "none") +
+  ylab("Number of Degrees Conferred") +
+  ggtitle("Number of STEM Degrees Obtained by Women")
+  
+```
+
+This graph shows the number of Women who have graduated with different STEM degrees from 1970 to 2018. This indicates that the general trend is increasing in certain fields such as Biomedical Sciences, Psychology, and Health; which has seen the largest increase over this period. On the other hand, other fields have seen little to no growth in the same period, Mathematics and Statistics, Physical Sciences (Geology, Earth Science, Physics), Computer Science, and Engineering all seeing little growth in women graduates.
+
+# Percent of Women STEM Graduates.
+
+Another, perhaps more useful, insight might be to look at the percentage of women graduating with STEM degrees over time, as this might adjust for changes in the total number of students attending college over time.
+
+```{r, echo=FALSE}
+StemDegreesPercent = StemDegreesPercent %>%
+  select(Year,
+         Biomed = PercentFemalesBiomed,
+         CompSci = PercentFemalesComp,
+         Mathemtatics = PercentFemalesMat,
+         Engineering = PercentFemalesEngT,
+         Health = PercentFemalesHeal,
+         PhySci = PercentFemalesPhyS,
+         Psychology = PercentFemalesPsy)
+#StemDegreesPercentLast = filter(StemDegreesPercent, Year == max(Year))
+StemDegreesPercentLong = melt(StemDegreesPercent, id.vars = "Year")
+StemDegreesPercentLong$value = as.numeric(StemDegreesPercentLong$value)
+StemDegreesPercentLong$Year = as.numeric(StemDegreesPercentLong$Year)
+StemDegreesPercentLongLast = filter(StemDegreesPercentLong,
+                                       Year == max(Year))
+
+ggplot(StemDegreesPercentLong, aes(x = Year,
+                                   y = value,
+                                   color = variable)) +
+  geom_line() +
+  geom_text(aes(label = variable),
+            data = StemDegreesPercentLongLast,
+            size = 3,
+            hjust = -.1) +
+  coord_cartesian(clip = "off",
+                  expand = FALSE) +
+  theme(plot.margin =
+              margin(30, 60, 10, 10),
+        legend.position = "none") +
+  ylab("Percent of Women Graduates") +
+  ggtitle("Percentages of STEM Degrees Obtained by Women")
+
+#StemDegreesPercentLast$valueMen = 100 - StemDegreesPercentLast$value
+
+# ggplot(StemDegreesPercentLast, aes(y = variable, fill = value)) +
+#   geom_bar(position = "fill") +
+#   scale_x_continuous(expand = c(0,0)) +
+#   labs(x = "Ratio", y = "Degree")
+  
+```
+
+This plot is somewhat similar to the previous one, however here it makes some details easier to see. From this plot, it seems that the ratio of women obtaining STEM degrees has increased to some extent in every field, although there has been fluctuation in specific fields. It is still clear from this graph that Health, Psychology and Biomedical Sciences are the most popular STEM degrees among women, however the curves are much more flat, which would indicate that those fields have seen large growth among men and women. Further, on the previous plot, it was shown that Engineering is the fourth most obtained STEM degree among women, however when looking at percentages, we see that it is much lower, hardly above the lowest field of Computer Sciences. This also would indicate that Engineering has also seen large growth among men and women, so while the number of women graduating with engineering degrees has increased, the ratio of women obtaining those degrees has not grown quite as fast.
